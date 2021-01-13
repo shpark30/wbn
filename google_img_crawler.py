@@ -4,68 +4,124 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 import datetime
 import time
+import sys
 
 
 class google_img_crawler:
 
-    quit_msg = "qt"
-    backward_msg = "bw"
+    quit_msg = "q"
+    backward_msg = "b"
 
     def __init__(self):
         self.result_dict = {}
         self.ctl_cmd = None
 
-    def __call__(self):
-        var = self.process_step()
-        if var == quit_msg:
-            print("크롤링을 종료합니다")
+    def _input_stage(self):
+        """
+        1. _input_stage 함수의 self.input_dict에 필요한 정보를 업데이트한다.
+        2. 필요한 정보를 crawl함수에 
+        """
+        self.input_dict = {"input1": '검색하고 싶은 키워드 : ',
+                           "input2": '다운로드 할 이미지 개수 : ',
+                           "input3": '다운로드 받을 디렉토리 : ',
+                           "input4": '저장할 이미지 파일 이름(공백 가능) : ',
+                           "input5": '저장할 이미지 파일 확장자명 : '}
+        '''self.input_dict = {"input1": f"input('{(self.input1_msg := '검색하고 싶은 키워드')} : ')",
+                           "input2": f"input('{(self.input2_msg := '다운로드 할 이미지 개수')} : ')",
+                           "input3": f"input('{(self.input3_msg := '다운로드 받을 디렉토리')} : ')",
+                           "input4": f"input('{(self.input4_msg := '저장할 이미지 파일 이름(공백 가능)')} : ')",
+                           "input5": f"input('{(self.input5_msg := '저장할 이미지 파일 확장자명')} : ')"}'''
+
+        #
+        next_stage_num = 2
+        input_num = 1
+        print("\n이전 단계부터 다시 입력하고 싶다면 b, 프로그램을 중단하고 싶다면 q를 입력하세요.")
+        while True:
+            print("\n" + (sequence := f"input{input_num}"))
+            input_msg = self.input_dict.get(sequence)
+            info = input(input_msg)
+            self.result_dict[sequence] = info
+            if input_num == 1:
+                print(
+                    f"url에서 이미지를 확인하세요\n : https://www.google.com/search?q={info}&hl=ko&tbm=isch")
+
+            if input_num > 1 and info == self.backward_msg:
+                input_num -= 1
+            elif info == self.quit_msg:
+                self.ctl_cmd = self.quit_msg
+                break
+            else:
+                input_num += 1
+
+            if input_num == len(self.input_dict)+1:
+                break
+
+        return next_stage_num
+
+    def _check_stage(self):
+        print("\n", *[self.input_dict[f"input{str(i+1)}"] +
+                      self.result_dict[f"input{str(i+1)}"] for i in range(len(self.input_dict))], sep="\n")
+        check_items = input(
+            f"위의 정보가 맞습니까?\n진행[y]/리셋[{self.backward_msg}]/중단[{self.quit_msg}]]")
+        if check_items == 'y':
+            next_stage_num = 3
+        elif check_items == self.backward_msg:
+            next_stage_num = 1
+        elif check_items == self.quit_msg:
+            self.ctl_cmd = self.quit_msg
             return None
+        else:
+            next_stage_num = 2
+        return next_stage_num
+
+    def _crawl_stage(self):
+        next_stage_num = 4
         search_name, img_num, download_path, file_name, file_extension = [
-            self.result_dict[f"step{str(n+1)}"] for n in range(len(self.result_dict))]
+            self.result_dict[f"input{str(n+1)}"] for n in range(len(self.result_dict))]
         self.scrap_by_selenium(search_name, img_num,
                                download_path, file_name, file_extension)
-        return None
+        return next_stage_num
 
-    def _control_flow(input):
-        ctl_cmd = {quit_msg: "break", backward_msg: ""}.get(input, None)
-        return ctl_cmd
+    def _quit_program(self):
+        if self.ctl_cmd == self.quit_msg:
+            print("quit")
+            quit()
+            sys.exit("이미지 크롤러를 종료합니다.")
+            # 파이썬 프로그램 종료하는 법
+        else:
+            print("다음 단계를 진행합니다.")
 
     def process_step(self):
-        step_dict = {"step1": [(step1_msg := '검색하고 싶은 키워드'), f"input('{step1_msg} : ')"],
-                     "step2": [(step2_msg := '다운로드 할 이미지 개수'), f"input('{step2_msg} : ')"],
-                     "step3": [(step3_msg := '다운로드 받을 디렉토리'), f"input('{step3_msg} : ')"],
-                     "step4": [(step4_msg := '저장할 이미지 파일 이름(공백 가능)'), f"input('{step4_msg} : ')"],
-                     "step5": [(step5_msg := '저장할 이미지 파일 확장자명'), f"input('{step5_msg} : ')"]}
+        stage_dict = {"stage1": f"self._input_stage()",
+                      "stage2": f"self._check_stage()",
+                      "stage3": f"self._crawl_stage()"}
 
-        def _single_step(step_num):
-            print("\n" + (sequence := f"step{step_num}"))
-            process = step_dict.get(sequence)[1]
-            var = eval(process)
-            self.result_dict[sequence] = var
-            if n == 1:
-                print(
-                    f"url : https://www.google.com/search?q={var}&hl=ko&tbm=isch")
-            self.ctl_cmd = _control_flow(var)
-            return var
-
-        step_num = 1
-        t_step_cnt = len(step_dict)
+        stage_num = 1
         while True:
-            if step_num < t_step_cnt + 1:
-                _single_step(step_num)
+            stage_func = stage_dict.get(f"stage{stage_num}", None)
+            stage_num = eval(stage_func)
+            self._quit_program()
+            if stage_num > len(stage_dict):
+                break
+        print("이미지 수집을 완료했습니다.")
+        return None
+        '''   if stage_num < t_step_cnt + 1:
+                var = _single_step(stage_num)
 
-            elif step_num == t_step_cnt + 1:
-                # print("\n", *[eval(f"step{str(i+1)}_msg") + " : " + self.result_dict[f"step{str(i+1)}"] for i in range(len(step_dict))], sep = "\n")
-                print("\n", *[step_dict[f"step{str(i+1)}"][0] + " : " +
-                              self.result_dict[f"step{str(i+1)}"] for i in range(len(step_dict))], sep="\n")
+            elif stage_num == t_step_cnt + 1:
+                # print("\n", *[eval(f"step{str(i+1)}_msg") + " : " + self.result_dict[f"step{str(i+1)}"] for i in range(len(self.input_dict))], sep = "\n")
+                print("\n", *[self.input_dict[f"step{str(i+1)}"][0] + " : " +
+                              self.result_dict[f"step{str(i+1)}"] for i in range(len(self.input_dict))], sep="\n")
                 check_items = input(
                     "위의 정보가 맞습니까? 'n'을 입력하면 처음부터 다시 시작합니다\n[y/n]")
                 if check_items == 'y':
                     break
+                elif check_items == 'n':
+                    stage_num = 1
                 else:
-                    step_num = 1
+                    continue
             else:
-                print("step_num가 step_dict의 범위를 벗어났습니다. 디버깅해주세요.")
+                print("stage_num가 self.input_dict의 범위를 벗어났습니다. 디버깅해주세요.")
                 var = quit_msg
 
             if var == quit_msg:
@@ -75,7 +131,7 @@ class google_img_crawler:
             else:
                 n += 1
 
-        return var
+        return var'''
 
     def _doScrollDown(self, driver, limit):
         while True:
@@ -90,28 +146,41 @@ class google_img_crawler:
             if len(driver.find_elements_by_tag_name("img")) > limit:
                 break
 
-    def scrap_by_selenium(self, search_name, img_num_want, download_path=None, file_name="", file_extension="png"):
+    def scrap_by_selenium(self, search_name, img_num_want, download_path, file_name, file_extension):
+        # 다운로드 경로 지정
         options = webdriver.ChromeOptions()
         options.add_experimental_option("prefs", {
-                                        "download.default_directory": repr(download_path)})
+                                        "download.default_directory": repr(download_path),
+                                        "excludeSwitches": ['enable-logging']})
+        # 브라우저 오픈
         driver = webdriver.Chrome(
             'C:/Users/seohy/chromedriver.exe', chrome_options=options)
         driver.get("https://www.google.co.kr/imghp?hl=ko&tab=ri&authuser=0&ogbl")
+
+        # 검색어 입력
         elem = driver.find_element_by_name("q")
         elem.clear()
         elem.send_keys(search_name)
         elem.send_keys(Keys.RETURN)
         assert "No results found." not in driver.page_source
 
+        # 원하는 이미지 개수를 만족할 때까지 스크롤
         self._doScrollDown(driver, int(img_num_want))
         img_list = driver.find_elements_by_css_selector(".rg_i.Q4LuWd")
-        for i, img in enumerate(img_list):
 
-            img.click()
+        # 이미지 다운로드
+        for i, img in enumerate(img_list):
+            # get image src
+            # img.click() # via the webdriver element click.
+            # its a click done via javascript
+            driver.execute_script("arguments[0].click();", img)
+            time.sleep(0.1)
             target = driver.find_element_by_css_selector(".n3VNCb")
             target_src = target.get_attribute("src")
+
+            # download
             urllib.request.urlretrieve(
-                src, file_name + str(i) + "." + file_extension)
+                target_src, file_name + str(i) + "." + file_extension)
 
             # target.context_click().send_keys("v")
             # driver.send_keys(file_name + str(i) + "." + file_extension)
@@ -154,7 +223,7 @@ class google_img_crawler:
 if __name__ == "__main__":
 
     img_crawler = google_img_crawler()
-    img_crawler()
+    img_crawler.process_step()
 
     # result_items, var = process_step()
     # if var == quit_msg:
